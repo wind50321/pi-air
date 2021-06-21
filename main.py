@@ -39,21 +39,24 @@ ser_sds011 = serial.Serial(PORT, 9600, bytesize=8, parity='N', stopbits=1)
 
 
 def get_avg_data(data_list):
-    pm25 = sum([data['PM25'] for data in data_list]) / len(data_list)
-    pm10 = sum([data['PM10'] for data in data_list]) / len(data_list)
-    pm25 = int(pm25 * 10) / 10  # 只保留小數點一位
-    pm10 = int(pm10 * 10) / 10  # 只保留小數點一位
-    avg_data = {
-        'PM25': pm25,
-        'PM10': pm10,
-        'at': data_list[-1]['at'],  # 以最後一筆時間紀錄
-    }
+    avg_data = {}
+    for key in data_list[0]:  # get avg for every type of data
+        avg = sum([data[key] for data in data_list]) / len(data_list)
+        avg_data[key] = int(avg * 10) / 10  # 只保留小數點一位
     return avg_data
+
+
+def check_bad_data(data, data0):
+    # print('checking for bad data')
+    for key in data:
+        if data[key] > data0[key] * 5:
+            return True
 
 
 def main():
     sec_data_list = []
-    ts0 = datetime.now(timezone.utc)
+    ts0 = datetime.now(timezone.utc)  # last timestamp
+    sec_data0 = None  # last second data
 
     while True:
         # SDS011
@@ -66,17 +69,21 @@ def main():
         sec_data = {
             'PM25': pm25,
             'PM10': pm10,
-            'at': ts,
         }
 
-        print('sec data: {}, PM2.5: {}, PM10: {}'.format(sec_data['at'], sec_data['PM25'], sec_data['PM10']))
-        db.insert_data(sec_data)
+        if sec_data0 and check_bad_data(sec_data, sec_data0):  # check for bad data
+            print('filtering bad data')
+            continue
+        sec_data0 = sec_data
+
+        print('sec data: {}, PM2.5: {}, PM10: {}'.format(ts, sec_data['PM25'], sec_data['PM10']))
         sec_data_list.append(sec_data)
+        db.insert_data(sec_data, ts)
 
         if ts.minute != ts0.minute:
             min_data = get_avg_data(sec_data_list)
-            print('min data: {}, PM2.5: {}, PM10: {}'.format(min_data['at'], min_data['PM25'], min_data['PM10']))
-            db.insert_minute_data(min_data)
+            print('min data: {}, PM2.5: {}, PM10: {}'.format(ts, min_data['PM25'], min_data['PM10']))
+            db.insert_minute_data(min_data, ts)
             ts0 = ts
             sec_data_list = []
 
