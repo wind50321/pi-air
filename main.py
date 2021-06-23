@@ -59,11 +59,11 @@ def check_bad_data(data, data0):
 
 def main():
     sec_data_list = []
-    ts0 = datetime.now(timezone.utc)  # timestamp for last minute
+    ts0 = datetime.now(timezone.utc)  # timestamp for 1m ago
     sec_data0 = {
         'PM25': 0,  # for first time check
         'PM10': 0,
-    }  # last second data
+    }  # data for 1s ago
 
     while True:
         # SDS011
